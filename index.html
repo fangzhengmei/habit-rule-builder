@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>习惯规则构建器</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-container">
+    <header>
+      <h1>习惯规则构建器</h1>
+      <p class="subtitle">建立好习惯，追踪每一天</p>
+    </header>
+
+    <main>
+      <!-- 习惯列表 -->
+      <section class="habits-section">
+        <div class="section-header">
+          <h2>我的习惯</h2>
+          <button id="addHabitBtn" class="btn btn-primary">+ 添加习惯</button>
+        </div>
+        <div id="habitsList" class="habits-list">
+          <div class="empty-state">
+            <p>还没有习惯，点击上方按钮开始创建！</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 习惯详情和日历 -->
+      <section id="habitDetailSection" class="detail-section hidden">
+        <div class="detail-header">
+          <button id="backToListBtn" class="btn btn-secondary">← 返回列表</button>
+          <h2 id="detailTitle">习惯详情</h2>
+          <div class="detail-actions">
+            <button id="editHabitBtn" class="btn btn-secondary">编辑</button>
+            <button id="deleteHabitBtn" class="btn btn-danger">删除</button>
+          </div>
+        </div>
+
+        <!-- 统计信息 -->
+        <div class="stats-container" id="statsContainer">
+          <div class="stat-card">
+            <span class="stat-value" id="statCurrentStreak">0</span>
+            <span class="stat-label">当前连续天数</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-value" id="statLongestStreak">0</span>
+            <span class="stat-label">最长连续天数</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-value" id="statTotalDays">0</span>
+            <span class="stat-label">总打卡天数</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-value" id="statTotalCheckIns">0</span>
+            <span class="stat-label">总打卡次数</span>
+          </div>
+        </div>
+
+        <!-- 打卡按钮 -->
+        <div class="checkin-section">
+          <button id="checkInBtn" class="btn btn-large btn-success">
+            今日打卡
+          </button>
+          <p id="checkInStatus" class="checkin-status"></p>
+        </div>
+
+        <!-- 日历 -->
+        <div class="calendar-section">
+          <div class="calendar-header">
+            <button id="prevMonthBtn" class="btn btn-secondary">←</button>
+            <h3 id="calendarTitle">2024年1月</h3>
+            <button id="nextMonthBtn" class="btn btn-secondary">→</button>
+          </div>
+          <div class="calendar-weekdays">
+            <div>一</div>
+            <div>二</div>
+            <div>三</div>
+            <div>四</div>
+            <div>五</div>
+            <div>六</div>
+            <div>日</div>
+          </div>
+          <div id="calendarGrid" class="calendar-grid"></div>
+        </div>
+      </section>
+
+      <!-- 添加/编辑习惯模态框 -->
+      <div id="habitModal" class="modal hidden">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h3 id="modalTitle">添加新习惯</h3>
+            <button id="closeModalBtn" class="close-btn">&times;</button>
+          </div>
+          <form id="habitForm" class="habit-form">
+            <div class="form-group">
+              <label for="habitName">习惯名称</label>
+              <input type="text" id="habitName" name="habitName" placeholder="例如：每天运动30分钟" required>
+            </div>
+            
+            <div class="form-group">
+              <label>频率类型</label>
+              <div class="frequency-options">
+                <label class="radio-label">
+                  <input type="radio" name="frequencyType" value="daily" checked>
+                  <span>每日</span>
+                </label>
+                <label class="radio-label">
+                  <input type="radio" name="frequencyType" value="weekly">
+                  <span>每周 N 次</span>
+                </label>
+                <label class="radio-label">
+                  <input type="radio" name="frequencyType" value="interval">
+                  <span>间隔 N 天</span>
+                </label>
+              </div>
+            </div>
+            
+            <div id="dailyConfig" class="frequency-config">
+              <div class="form-group">
+                <label for="timesPerDay">每天次数</label>
+                <input type="number" id="timesPerDay" name="timesPerDay" min="1" value="1">
+              </div>
+            </div>
+            
+            <div id="weeklyConfig" class="frequency-config hidden">
+              <div class="form-group">
+                <label for="timesPerWeek">每周次数</label>
+                <input type="number" id="timesPerWeek" name="timesPerWeek" min="1" max="7" value="3">
+              </div>
+            </div>
+            
+            <div id="intervalConfig" class="frequency-config hidden">
+              <div class="form-group">
+                <label for="intervalDays">间隔天数</label>
+                <input type="number" id="intervalDays" name="intervalDays" min="1" value="2">
+              </div>
+            </div>
+            
+            <div class="form-actions">
+              <button type="button" id="cancelModalBtn" class="btn btn-secondary">取消</button>
+              <button type="submit" class="btn btn-primary">保存</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- 删除确认模态框 -->
+      <div id="deleteModal" class="modal hidden">
+        <div class="modal-content modal-sm">
+          <h3>确认删除</h3>
+          <p>确定要删除这个习惯吗？所有相关的打卡记录也会被删除。</p>
+          <div class="form-actions">
+            <button id="cancelDeleteBtn" class="btn btn-secondary">取消</button>
+            <button id="confirmDeleteBtn" class="btn btn-danger">删除</button>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script type="module" src="src/app.js"></script>
+</body>
+</html>
