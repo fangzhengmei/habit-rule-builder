@@ -1045,11 +1045,225 @@ describe('Config Normalization Consistency - Edit/Save/Display/Calculate', () =>
     const today = new Date();
     const checkIns = [
       createMockCheckIn('test-id', today),
-      createMockCheckIn('test-id', today),
-      createMockCheckIn('test-id', today)
+      createMockCheckIn('test-id', addDays(today, -1)),
+      createMockCheckIn('test-id', addDays(today, -2))
     ];
     
     expect(isWeeklyGoalMet(normalized, checkIns, today)).toBe(true);
     expect(canCheckInToday(normalized, checkIns, today)).toBe(false);
+  });
+});
+
+describe('Weekly Habit - Semantics and Boundary Cases', () => {
+  describe('Deduplication Logic - Same Day Multiple Check-ins', () => {
+    const habit = createHabit('Weekly Test', FrequencyType.WEEKLY, { timesPerWeek: 3 });
+
+    test('multiple check-ins on same day should count as 1 day', () => {
+      const today = new Date();
+      const checkIns = [
+        createMockCheckIn(habit.id, today),
+        createMockCheckIn(habit.id, today),
+        createMockCheckIn(habit.id, today)
+      ];
+      
+      expect(getWeeklyCheckInCount(checkIns, today)).toBe(1);
+    });
+
+    test('3 check-ins on same day should not meet weekly goal of 3 days', () => {
+      const today = new Date();
+      const checkIns = [
+        createMockCheckIn(habit.id, today),
+        createMockCheckIn(habit.id, today),
+        createMockCheckIn(habit.id, today)
+      ];
+      
+      expect(isWeeklyGoalMet(habit, checkIns, today)).toBe(false);
+    });
+
+    test('3 check-ins on same day should allow more check-ins this week', () => {
+      const today = new Date();
+      const checkIns = [
+        createMockCheckIn(habit.id, today),
+        createMockCheckIn(habit.id, today),
+        createMockCheckIn(habit.id, today)
+      ];
+      
+      expect(canCheckInToday(habit, checkIns, today)).toBe(true);
+    });
+
+    test('3 check-ins on different days should meet weekly goal', () => {
+      const today = new Date();
+      const checkIns = [
+        createMockCheckIn(habit.id, today),
+        createMockCheckIn(habit.id, addDays(today, -1)),
+        createMockCheckIn(habit.id, addDays(today, -2))
+      ];
+      
+      expect(getWeeklyCheckInCount(checkIns, today)).toBe(3);
+      expect(isWeeklyGoalMet(habit, checkIns, today)).toBe(true);
+    });
+
+    test('mixed multiple check-ins should count unique days', () => {
+      const today = new Date();
+      const checkIns = [
+        createMockCheckIn(habit.id, today),
+        createMockCheckIn(habit.id, today),
+        createMockCheckIn(habit.id, addDays(today, -1)),
+        createMockCheckIn(habit.id, addDays(today, -1)),
+        createMockCheckIn(habit.id, addDays(today, -2))
+      ];
+      
+      expect(getWeeklyCheckInCount(checkIns, today)).toBe(3);
+      expect(isWeeklyGoalMet(habit, checkIns, today)).toBe(true);
+    });
+  });
+
+  describe('Boundary Configurations', () => {
+    test('timesPerWeek = 1 should require at least 1 day per week', () => {
+      const habit = createHabit('Once Per Week', FrequencyType.WEEKLY, { timesPerWeek: 1 });
+      const today = new Date();
+      
+      let checkIns = [];
+      expect(isWeeklyGoalMet(habit, checkIns, today)).toBe(false);
+      expect(canCheckInToday(habit, checkIns, today)).toBe(true);
+      
+      checkIns = [createMockCheckIn(habit.id, today)];
+      expect(isWeeklyGoalMet(habit, checkIns, today)).toBe(true);
+      expect(canCheckInToday(habit, checkIns, today)).toBe(false);
+    });
+
+    test('timesPerWeek = 7 should require all 7 days of the week', () => {
+      const habit = createHabit('Daily Habit (Weekly)', FrequencyType.WEEKLY, { timesPerWeek: 7 });
+      const today = new Date();
+      
+      const checkIns = [];
+      for (let i = 0; i < 6; i++) {
+        checkIns.push(createMockCheckIn(habit.id, addDays(today, -i)));
+      }
+      
+      expect(getWeeklyCheckInCount(checkIns, today)).toBe(6);
+      expect(isWeeklyGoalMet(habit, checkIns, today)).toBe(false);
+      expect(canCheckInToday(habit, checkIns, today)).toBe(true);
+      
+      checkIns.push(createMockCheckIn(habit.id, addDays(today, -6)));
+      expect(getWeeklyCheckInCount(checkIns, today)).toBe(7);
+      expect(isWeeklyGoalMet(habit, checkIns, today)).toBe(true);
+    });
+
+    test('timesPerWeek = 8 should normalize to default (3)', () => {
+      const rawHabit = {
+        id: 'test',
+        name: 'Test',
+        frequencyType: FrequencyType.WEEKLY,
+        frequencyConfig: { timesPerWeek: 8 }
+      };
+      
+      const normalized = normalizeHabitConfig(rawHabit);
+      expect(normalized.frequencyConfig.timesPerWeek).toBe(3);
+      
+      const today = new Date();
+      const checkIns = [
+        createMockCheckIn('test', today),
+        createMockCheckIn('test', addDays(today, -1)),
+        createMockCheckIn('test', addDays(today, -2))
+      ];
+      
+      expect(isWeeklyGoalMet(normalized, checkIns, today)).toBe(true);
+    });
+  });
+
+  describe('Normalization Consistency', () => {
+    test('invalid weekly config should normalize to default behavior', () => {
+      const invalidConfigs = [
+        { timesPerWeek: 0 },
+        { timesPerWeek: -1 },
+        { timesPerWeek: 8 },
+        { timesPerWeek: 3.5 },
+        { timesPerWeek: 'abc' },
+        {},
+        null
+      ];
+      
+      const today = new Date();
+      
+      invalidConfigs.forEach(config => {
+        const rawHabit = {
+          id: 'test',
+          name: 'Test',
+          frequencyType: FrequencyType.WEEKLY,
+          frequencyConfig: config
+        };
+        
+        const normalized = normalizeHabitConfig(rawHabit);
+        expect(normalized.frequencyConfig.timesPerWeek).toBe(3);
+        
+        const checkIns = [
+          createMockCheckIn('test', today),
+          createMockCheckIn('test', addDays(today, -1)),
+          createMockCheckIn('test', addDays(today, -2))
+        ];
+        
+        expect(isWeeklyGoalMet(normalized, checkIns, today)).toBe(true);
+        expect(canCheckInToday(normalized, checkIns, today)).toBe(false);
+      });
+    });
+
+    test('valid weekly config should work correctly after normalization', () => {
+      const habit = {
+        id: 'test',
+        name: 'Test',
+        frequencyType: FrequencyType.WEEKLY,
+        frequencyConfig: { timesPerWeek: 2 }
+      };
+      
+      const normalized = normalizeHabitConfig(habit);
+      expect(normalized.frequencyConfig.timesPerWeek).toBe(2);
+      
+      const today = new Date();
+      const oneDayAgo = addDays(today, -1);
+      const twoDaysAgo = addDays(today, -2);
+      
+      let checkIns = [createMockCheckIn('test', today)];
+      expect(isWeeklyGoalMet(normalized, checkIns, today)).toBe(false);
+      expect(canCheckInToday(normalized, checkIns, today)).toBe(true);
+      
+      checkIns = [
+        createMockCheckIn('test', today),
+        createMockCheckIn('test', oneDayAgo)
+      ];
+      expect(isWeeklyGoalMet(normalized, checkIns, today)).toBe(true);
+      expect(canCheckInToday(normalized, checkIns, today)).toBe(false);
+    });
+  });
+
+  describe('Week Range Behavior', () => {
+    const habit = createHabit('Weekly Test', FrequencyType.WEEKLY, { timesPerWeek: 2 });
+
+    test('check-ins from previous week should not count', () => {
+      const today = new Date();
+      const lastWeek = addDays(today, -10);
+      const twoDaysAgo = addDays(today, -2);
+      
+      const checkIns = [
+        createMockCheckIn(habit.id, lastWeek),
+        createMockCheckIn(habit.id, twoDaysAgo)
+      ];
+      
+      expect(getWeeklyCheckInCount(checkIns, today)).toBe(1);
+    });
+
+    test('check-ins across week boundary should be counted separately', () => {
+      const today = new Date();
+      const eightDaysAgo = addDays(today, -8);
+      const yesterday = addDays(today, -1);
+      
+      const checkIns = [
+        createMockCheckIn(habit.id, eightDaysAgo),
+        createMockCheckIn(habit.id, yesterday)
+      ];
+      
+      expect(getWeeklyCheckInCount(checkIns, today)).toBe(1);
+      expect(getWeeklyCheckInCount(checkIns, eightDaysAgo)).toBe(1);
+    });
   });
 });

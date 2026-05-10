@@ -25,6 +25,7 @@ import {
   getStatistics,
   getCalendarData,
   getDailyCheckInCount,
+  getWeeklyCheckInCount,
   isDateGoalMet
 } from './habitLogic.js';
 
@@ -47,7 +48,7 @@ function getFrequencyDescription(habit) {
     case FrequencyType.DAILY:
       return `每天 ${habit.frequencyConfig.timesPerDay} 次`;
     case FrequencyType.WEEKLY:
-      return `每周 ${habit.frequencyConfig.timesPerWeek} 次`;
+      return `每周 ${habit.frequencyConfig.timesPerWeek} 天`;
     case FrequencyType.INTERVAL:
       return `每 ${habit.frequencyConfig.intervalDays} 天`;
     default:
@@ -166,7 +167,7 @@ function updateCheckInButton() {
       break;
     case FrequencyType.WEEKLY:
       const requiredWeekly = habit.frequencyConfig.timesPerWeek;
-      const weeklyCount = getWeeklyCheckInCountFixed(habit, checkIns, today);
+      const weeklyCount = getWeeklyCheckInCount(checkIns, today);
       statusText = `本周进度: ${weeklyCount}/${requiredWeekly} 天`;
       break;
     case FrequencyType.INTERVAL:
@@ -178,30 +179,6 @@ function updateCheckInButton() {
   }
   
   checkInStatus.textContent = statusText;
-}
-
-function getWeeklyCheckInCountFixed(habit, checkIns, date) {
-  const d = normalizeDate(date);
-  const day = d.getDay();
-  const diffToMonday = day === 0 ? -6 : 1 - day;
-  const weekStart = new Date(d);
-  weekStart.setDate(weekStart.getDate() + diffToMonday);
-  weekStart.setHours(0, 0, 0, 0);
-  
-  const weekEnd = new Date(weekStart);
-  weekEnd.setDate(weekEnd.getDate() + 6);
-  weekEnd.setHours(23, 59, 59, 999);
-  
-  const uniqueDates = new Set();
-  
-  checkIns.forEach(c => {
-    const checkDate = normalizeDate(c.date);
-    if (checkDate >= weekStart && checkDate <= weekEnd) {
-      uniqueDates.add(checkDate.toISOString());
-    }
-  });
-  
-  return uniqueDates.size;
 }
 
 function handleCheckIn() {
