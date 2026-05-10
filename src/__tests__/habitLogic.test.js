@@ -4,7 +4,11 @@ import {
   FrequencyType,
   normalizeDate,
   addDays,
-  datesAreEqual
+  datesAreEqual,
+  validatePositiveInteger,
+  validateIntervalDays,
+  validateTimesPerDay,
+  validateTimesPerWeek
 } from '../models.js';
 
 import {
@@ -381,5 +385,328 @@ describe('Edge Cases', () => {
     checkIns.push(createMockCheckIn(habit.id, today));
     expect(isDailyGoalMet(habit, checkIns, today)).toBe(true);
     expect(canCheckInToday(habit, checkIns, today)).toBe(false);
+  });
+});
+
+describe('Validation Functions - Boundary Cases', () => {
+  describe('validatePositiveInteger', () => {
+    test('should return null for null', () => {
+      expect(validatePositiveInteger(null)).toBeNull();
+    });
+
+    test('should return null for undefined', () => {
+      expect(validatePositiveInteger(undefined)).toBeNull();
+    });
+
+    test('should return null for empty string', () => {
+      expect(validatePositiveInteger('')).toBeNull();
+    });
+
+    test('should return null for non-numeric string', () => {
+      expect(validatePositiveInteger('abc')).toBeNull();
+    });
+
+    test('should return null for NaN', () => {
+      expect(validatePositiveInteger(NaN)).toBeNull();
+    });
+
+    test('should return null for negative number', () => {
+      expect(validatePositiveInteger(-1)).toBeNull();
+      expect(validatePositiveInteger(-100)).toBeNull();
+    });
+
+    test('should return null for zero', () => {
+      expect(validatePositiveInteger(0)).toBeNull();
+    });
+
+    test('should return null for non-integer numbers', () => {
+      expect(validatePositiveInteger(1.5)).toBeNull();
+      expect(validatePositiveInteger(2.99)).toBeNull();
+      expect(validatePositiveInteger(3.0001)).toBeNull();
+    });
+
+    test('should return valid positive integer', () => {
+      expect(validatePositiveInteger(1)).toBe(1);
+      expect(validatePositiveInteger(2)).toBe(2);
+      expect(validatePositiveInteger(100)).toBe(100);
+    });
+
+    test('should return null for numbers below min', () => {
+      expect(validatePositiveInteger(0, 1)).toBeNull();
+      expect(validatePositiveInteger(4, 5)).toBeNull();
+    });
+
+    test('should return null for numbers above max', () => {
+      expect(validatePositiveInteger(10, 1, 5)).toBeNull();
+    });
+
+    test('should return value within valid range', () => {
+      expect(validatePositiveInteger(5, 1, 10)).toBe(5);
+      expect(validatePositiveInteger(1, 1, 10)).toBe(1);
+      expect(validatePositiveInteger(10, 1, 10)).toBe(10);
+    });
+  });
+
+  describe('validateIntervalDays', () => {
+    test('should return null for 0', () => {
+      expect(validateIntervalDays(0)).toBeNull();
+    });
+
+    test('should return null for negative numbers', () => {
+      expect(validateIntervalDays(-1)).toBeNull();
+      expect(validateIntervalDays(-5)).toBeNull();
+    });
+
+    test('should return null for non-integer', () => {
+      expect(validateIntervalDays(1.5)).toBeNull();
+      expect(validateIntervalDays(2.3)).toBeNull();
+    });
+
+    test('should return null for values > 365', () => {
+      expect(validateIntervalDays(366)).toBeNull();
+      expect(validateIntervalDays(1000)).toBeNull();
+    });
+
+    test('should return valid interval days (1-365)', () => {
+      expect(validateIntervalDays(1)).toBe(1);
+      expect(validateIntervalDays(2)).toBe(2);
+      expect(validateIntervalDays(30)).toBe(30);
+      expect(validateIntervalDays(365)).toBe(365);
+    });
+  });
+
+  describe('validateTimesPerDay', () => {
+    test('should return null for 0', () => {
+      expect(validateTimesPerDay(0)).toBeNull();
+    });
+
+    test('should return null for negative numbers', () => {
+      expect(validateTimesPerDay(-1)).toBeNull();
+    });
+
+    test('should return null for non-integer', () => {
+      expect(validateTimesPerDay(1.5)).toBeNull();
+    });
+
+    test('should return valid times per day (>= 1)', () => {
+      expect(validateTimesPerDay(1)).toBe(1);
+      expect(validateTimesPerDay(3)).toBe(3);
+      expect(validateTimesPerDay(10)).toBe(10);
+    });
+  });
+
+  describe('validateTimesPerWeek', () => {
+    test('should return null for 0', () => {
+      expect(validateTimesPerWeek(0)).toBeNull();
+    });
+
+    test('should return null for negative numbers', () => {
+      expect(validateTimesPerWeek(-1)).toBeNull();
+    });
+
+    test('should return null for non-integer', () => {
+      expect(validateTimesPerWeek(1.5)).toBeNull();
+    });
+
+    test('should return null for values > 7', () => {
+      expect(validateTimesPerWeek(8)).toBeNull();
+      expect(validateTimesPerWeek(10)).toBeNull();
+    });
+
+    test('should return valid times per week (1-7)', () => {
+      expect(validateTimesPerWeek(1)).toBe(1);
+      expect(validateTimesPerWeek(3)).toBe(3);
+      expect(validateTimesPerWeek(7)).toBe(7);
+    });
+  });
+});
+
+describe('createHabit - Boundary Cases for Frequency Config', () => {
+  test('should use default intervalDays (2) when config is empty', () => {
+    const habit = createHabit('Test', FrequencyType.INTERVAL, {});
+    expect(habit.frequencyConfig.intervalDays).toBe(2);
+  });
+
+  test('should use default intervalDays (2) when intervalDays is 0', () => {
+    const habit = createHabit('Test', FrequencyType.INTERVAL, { intervalDays: 0 });
+    expect(habit.frequencyConfig.intervalDays).toBe(2);
+  });
+
+  test('should use default intervalDays (2) when intervalDays is negative', () => {
+    const habit = createHabit('Test', FrequencyType.INTERVAL, { intervalDays: -5 });
+    expect(habit.frequencyConfig.intervalDays).toBe(2);
+  });
+
+  test('should use default intervalDays (2) when intervalDays is non-integer', () => {
+    const habit = createHabit('Test', FrequencyType.INTERVAL, { intervalDays: 2.5 });
+    expect(habit.frequencyConfig.intervalDays).toBe(2);
+  });
+
+  test('should use default intervalDays (2) when intervalDays is > 365', () => {
+    const habit = createHabit('Test', FrequencyType.INTERVAL, { intervalDays: 500 });
+    expect(habit.frequencyConfig.intervalDays).toBe(2);
+  });
+
+  test('should use default intervalDays (2) when intervalDays is invalid string', () => {
+    const habit = createHabit('Test', FrequencyType.INTERVAL, { intervalDays: 'abc' });
+    expect(habit.frequencyConfig.intervalDays).toBe(2);
+  });
+
+  test('should use default intervalDays (2) when intervalDays is empty string', () => {
+    const habit = createHabit('Test', FrequencyType.INTERVAL, { intervalDays: '' });
+    expect(habit.frequencyConfig.intervalDays).toBe(2);
+  });
+
+  test('should use default intervalDays (2) when intervalDays is null', () => {
+    const habit = createHabit('Test', FrequencyType.INTERVAL, { intervalDays: null });
+    expect(habit.frequencyConfig.intervalDays).toBe(2);
+  });
+
+  test('should accept valid intervalDays (1)', () => {
+    const habit = createHabit('Test', FrequencyType.INTERVAL, { intervalDays: 1 });
+    expect(habit.frequencyConfig.intervalDays).toBe(1);
+  });
+
+  test('should accept valid intervalDays (365)', () => {
+    const habit = createHabit('Test', FrequencyType.INTERVAL, { intervalDays: 365 });
+    expect(habit.frequencyConfig.intervalDays).toBe(365);
+  });
+
+  test('should use default timesPerDay (1) when timesPerDay is 0', () => {
+    const habit = createHabit('Test', FrequencyType.DAILY, { timesPerDay: 0 });
+    expect(habit.frequencyConfig.timesPerDay).toBe(1);
+  });
+
+  test('should use default timesPerWeek (3) when timesPerWeek is 0', () => {
+    const habit = createHabit('Test', FrequencyType.WEEKLY, { timesPerWeek: 0 });
+    expect(habit.frequencyConfig.timesPerWeek).toBe(3);
+  });
+
+  test('should use default timesPerWeek (3) when timesPerWeek is 8', () => {
+    const habit = createHabit('Test', FrequencyType.WEEKLY, { timesPerWeek: 8 });
+    expect(habit.frequencyConfig.timesPerWeek).toBe(3);
+  });
+
+  test('should throw error for empty habit name', () => {
+    expect(() => {
+      createHabit('', FrequencyType.DAILY);
+    }).toThrow('Habit name is required');
+  });
+
+  test('should throw error for whitespace-only habit name', () => {
+    expect(() => {
+      createHabit('   ', FrequencyType.DAILY);
+    }).toThrow('Habit name is required');
+  });
+
+  test('should throw error for invalid frequency type', () => {
+    expect(() => {
+      createHabit('Test', 'invalid-type');
+    }).toThrow('Invalid frequency type');
+  });
+});
+
+describe('Habit Logic - Defensive Programming with Invalid Config', () => {
+  test('should behave correctly when intervalDays is directly set to 0', () => {
+    const habit = createHabit('Test', FrequencyType.INTERVAL, { intervalDays: 2 });
+    habit.frequencyConfig.intervalDays = 0;
+    
+    const today = new Date();
+    const checkIns = [
+      createMockCheckIn(habit.id, today),
+      createMockCheckIn(habit.id, addDays(today, -2)),
+      createMockCheckIn(habit.id, addDays(today, -4))
+    ];
+    
+    expect(canCheckInToday(habit, checkIns, today)).toBeDefined();
+    expect(calculateStreak(habit, checkIns, today)).toBeDefined();
+    expect(typeof calculateStreak(habit, checkIns, today)).toBe('number');
+  });
+
+  test('should behave correctly when intervalDays is directly set to negative', () => {
+    const habit = createHabit('Test', FrequencyType.INTERVAL, { intervalDays: 2 });
+    habit.frequencyConfig.intervalDays = -5;
+    
+    const today = new Date();
+    const checkIns = [createMockCheckIn(habit.id, today)];
+    
+    expect(canCheckInToday(habit, checkIns, today)).toBeDefined();
+    expect(calculateStreak(habit, checkIns, today)).toBeDefined();
+    expect(typeof calculateStreak(habit, checkIns, today)).toBe('number');
+  });
+
+  test('should behave correctly when timesPerDay is directly set to 0', () => {
+    const habit = createHabit('Test', FrequencyType.DAILY, { timesPerDay: 2 });
+    habit.frequencyConfig.timesPerDay = 0;
+    
+    const today = new Date();
+    const checkIns = [createMockCheckIn(habit.id, today)];
+    
+    expect(canCheckInToday(habit, checkIns, today)).toBeDefined();
+    expect(isDailyGoalMet(habit, checkIns, today)).toBeDefined();
+    expect(typeof isDailyGoalMet(habit, checkIns, today)).toBe('boolean');
+  });
+
+  test('should behave correctly when timesPerWeek is directly set to 0', () => {
+    const habit = createHabit('Test', FrequencyType.WEEKLY, { timesPerWeek: 3 });
+    habit.frequencyConfig.timesPerWeek = 0;
+    
+    const today = new Date();
+    const checkIns = [createMockCheckIn(habit.id, today)];
+    
+    expect(canCheckInToday(habit, checkIns, today)).toBeDefined();
+    expect(isWeeklyGoalMet(habit, checkIns, today)).toBeDefined();
+    expect(typeof isWeeklyGoalMet(habit, checkIns, today)).toBe('boolean');
+  });
+
+  test('should behave correctly when frequencyConfig is missing', () => {
+    const habit = {
+      id: 'test',
+      name: 'Test',
+      frequencyType: FrequencyType.INTERVAL,
+      frequencyConfig: undefined
+    };
+    
+    const today = new Date();
+    const checkIns = [createMockCheckIn(habit.id, today)];
+    
+    expect(() => {
+      canCheckInToday(habit, checkIns, today);
+    }).not.toThrow();
+    
+    expect(() => {
+      calculateStreak(habit, checkIns, today);
+    }).not.toThrow();
+  });
+
+  test('should behave correctly when habit is null', () => {
+    const today = new Date();
+    const checkIns = [];
+    
+    expect(() => {
+      canCheckInToday(null, checkIns, today);
+    }).not.toThrow();
+  });
+
+  test('should handle string intervalDays gracefully', () => {
+    const habit = createHabit('Test', FrequencyType.INTERVAL, { intervalDays: 2 });
+    habit.frequencyConfig.intervalDays = 'abc';
+    
+    const today = new Date();
+    const checkIns = [createMockCheckIn(habit.id, today)];
+    
+    expect(canCheckInToday(habit, checkIns, today)).toBeDefined();
+    expect(calculateStreak(habit, checkIns, today)).toBeGreaterThanOrEqual(0);
+  });
+
+  test('should handle float intervalDays gracefully', () => {
+    const habit = createHabit('Test', FrequencyType.INTERVAL, { intervalDays: 2 });
+    habit.frequencyConfig.intervalDays = 2.5;
+    
+    const today = new Date();
+    const checkIns = [createMockCheckIn(habit.id, today)];
+    
+    expect(canCheckInToday(habit, checkIns, today)).toBeDefined();
+    expect(calculateStreak(habit, checkIns, today)).toBeGreaterThanOrEqual(0);
   });
 });

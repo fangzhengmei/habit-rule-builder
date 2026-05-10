@@ -5,8 +5,28 @@ import {
   isDateBefore,
   addDays,
   getWeekRange,
-  isSameWeek
+  isSameWeek,
+  validatePositiveInteger
 } from './models.js';
+
+const DEFAULT_INTERVAL_DAYS = 2;
+const DEFAULT_TIMES_PER_DAY = 1;
+const DEFAULT_TIMES_PER_WEEK = 3;
+
+function getSafeIntervalDays(habit) {
+  const rawValue = habit?.frequencyConfig?.intervalDays;
+  return validatePositiveInteger(rawValue, 1, 365) ?? DEFAULT_INTERVAL_DAYS;
+}
+
+function getSafeTimesPerDay(habit) {
+  const rawValue = habit?.frequencyConfig?.timesPerDay;
+  return validatePositiveInteger(rawValue, 1) ?? DEFAULT_TIMES_PER_DAY;
+}
+
+function getSafeTimesPerWeek(habit) {
+  const rawValue = habit?.frequencyConfig?.timesPerWeek;
+  return validatePositiveInteger(rawValue, 1, 7) ?? DEFAULT_TIMES_PER_WEEK;
+}
 
 export function getCheckInDates(checkIns) {
   const dates = new Set();
@@ -46,19 +66,18 @@ export function getWeeklyCheckInCount(checkIns, date) {
 }
 
 export function isDailyGoalMet(habit, checkIns, date) {
-  const required = habit.frequencyConfig.timesPerDay;
+  const required = getSafeTimesPerDay(habit);
   const actual = getDailyCheckInCount(checkIns, date);
   return actual >= required;
 }
 
 export function isWeeklyGoalMet(habit, checkIns, date) {
-  const required = habit.frequencyConfig.timesPerWeek;
+  const required = getSafeTimesPerWeek(habit);
   const actual = getWeeklyCheckInCount(checkIns, date);
   return actual >= required;
 }
 
 export function isIntervalGoalMet(habit, checkIns, date) {
-  const intervalDays = habit.frequencyConfig.intervalDays;
   const checkInDates = getCheckInDates(checkIns);
   
   if (checkInDates.length === 0) return false;
@@ -75,6 +94,8 @@ export function isIntervalGoalMet(habit, checkIns, date) {
 }
 
 export function isDateGoalMet(habit, checkIns, date) {
+  if (!habit) return false;
+  
   switch (habit.frequencyType) {
     case FrequencyType.DAILY:
       return isDailyGoalMet(habit, checkIns, date);
@@ -88,6 +109,8 @@ export function isDateGoalMet(habit, checkIns, date) {
 }
 
 export function getNextDueDate(habit, checkIns, fromDate = new Date()) {
+  if (!habit) return normalizeDate(fromDate);
+  
   const startDate = normalizeDate(fromDate);
   const checkInDates = getCheckInDates(checkIns);
   
@@ -98,7 +121,7 @@ export function getNextDueDate(habit, checkIns, fromDate = new Date()) {
     case FrequencyType.WEEKLY: {
       const { weekStart, weekEnd } = getWeekRange(startDate);
       const weeklyCount = getWeeklyCheckInCount(checkIns, startDate);
-      const required = habit.frequencyConfig.timesPerWeek;
+      const required = getSafeTimesPerWeek(habit);
       
       if (weeklyCount < required) {
         return startDate;
@@ -112,7 +135,7 @@ export function getNextDueDate(habit, checkIns, fromDate = new Date()) {
     }
       
     case FrequencyType.INTERVAL: {
-      const intervalDays = habit.frequencyConfig.intervalDays;
+      const intervalDays = getSafeIntervalDays(habit);
       
       if (checkInDates.length === 0) {
         return startDate;
@@ -134,17 +157,19 @@ export function getNextDueDate(habit, checkIns, fromDate = new Date()) {
 }
 
 export function canCheckInToday(habit, checkIns, today = new Date()) {
+  if (!habit) return false;
+  
   const targetDate = normalizeDate(today);
   
   switch (habit.frequencyType) {
     case FrequencyType.DAILY: {
-      const required = habit.frequencyConfig.timesPerDay;
+      const required = getSafeTimesPerDay(habit);
       const actual = getDailyCheckInCount(checkIns, targetDate);
       return actual < required;
     }
       
     case FrequencyType.WEEKLY: {
-      const required = habit.frequencyConfig.timesPerWeek;
+      const required = getSafeTimesPerWeek(habit);
       const actual = getWeeklyCheckInCount(checkIns, targetDate);
       return actual < required;
     }
@@ -160,7 +185,7 @@ export function canCheckInToday(habit, checkIns, today = new Date()) {
 }
 
 export function calculateIntervalStreak(habit, checkIns, today = new Date()) {
-  const intervalDays = habit.frequencyConfig.intervalDays;
+  const intervalDays = getSafeIntervalDays(habit);
   const checkInDates = getCheckInDates(checkIns);
   
   if (checkInDates.length === 0) return 0;
@@ -201,7 +226,7 @@ export function calculateIntervalStreak(habit, checkIns, today = new Date()) {
 }
 
 export function calculateIntervalLongestStreak(habit, checkIns) {
-  const intervalDays = habit.frequencyConfig.intervalDays;
+  const intervalDays = getSafeIntervalDays(habit);
   const checkInDates = getCheckInDates(checkIns);
   
   if (checkInDates.length === 0) return 0;
@@ -232,6 +257,8 @@ export function calculateIntervalLongestStreak(habit, checkIns) {
 }
 
 export function calculateStreak(habit, checkIns, today = new Date()) {
+  if (!habit) return 0;
+  
   const checkInDates = getCheckInDates(checkIns);
   if (checkInDates.length === 0) return 0;
   
@@ -260,6 +287,8 @@ export function calculateStreak(habit, checkIns, today = new Date()) {
 }
 
 export function calculateLongestStreak(habit, checkIns) {
+  if (!habit) return 0;
+  
   const checkInDates = getCheckInDates(checkIns);
   if (checkInDates.length === 0) return 0;
   

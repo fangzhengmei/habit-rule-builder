@@ -3,7 +3,10 @@ import {
   createCheckIn,
   FrequencyType,
   normalizeDate,
-  datesAreEqual
+  datesAreEqual,
+  validateTimesPerDay,
+  validateTimesPerWeek,
+  validateIntervalDays
 } from './models.js';
 
 import {
