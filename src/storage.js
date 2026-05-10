@@ -1,4 +1,4 @@
-import { normalizeDate } from './models.js';
+import { normalizeDate, normalizeHabitConfig } from './models.js';
 
 const STORAGE_KEYS = {
   HABITS: 'habit_builder_habits',
@@ -20,7 +20,8 @@ export function getStorage() {
 export function getHabits() {
   const storage = getStorage();
   const data = storage.getItem(STORAGE_KEYS.HABITS);
-  return data ? JSON.parse(data) : [];
+  const habits = data ? JSON.parse(data) : [];
+  return habits.map(habit => normalizeHabitConfig(habit)).filter(Boolean);
 }
 
 export function saveHabits(habits) {
@@ -35,18 +36,27 @@ export function getHabitById(id) {
 
 export function addHabit(habit) {
   const habits = getHabits();
-  habits.push(habit);
+  const normalizedHabit = normalizeHabitConfig(habit);
+  if (!normalizedHabit) return null;
+  habits.push(normalizedHabit);
   saveHabits(habits);
-  return habit;
+  return normalizedHabit;
 }
 
 export function updateHabit(id, updates) {
   const habits = getHabits();
   const index = habits.findIndex(h => h.id === id);
   if (index === -1) return null;
-  habits[index] = { ...habits[index], ...updates, updatedAt: new Date().toISOString() };
+  
+  const currentHabit = habits[index];
+  const updatedHabit = { ...currentHabit, ...updates, updatedAt: new Date().toISOString() };
+  const normalizedHabit = normalizeHabitConfig(updatedHabit);
+  
+  if (!normalizedHabit) return null;
+  
+  habits[index] = normalizedHabit;
   saveHabits(habits);
-  return habits[index];
+  return normalizedHabit;
 }
 
 export function deleteHabit(id) {

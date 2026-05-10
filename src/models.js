@@ -103,7 +103,7 @@ function validateFrequencyConfig(frequencyType, config) {
   const validatedConfig = {};
   
   for (const [field, fieldRules] of Object.entries(rules)) {
-    const rawValue = config[field];
+    const rawValue = config?.[field];
     let validatedValue = null;
     
     switch (frequencyType) {
@@ -124,6 +124,23 @@ function validateFrequencyConfig(frequencyType, config) {
   }
   
   return validatedConfig;
+}
+
+export function normalizeHabitConfig(habit) {
+  if (!habit) return null;
+  
+  const normalizedHabit = { ...habit };
+  
+  if (!Object.values(FrequencyType).includes(normalizedHabit.frequencyType)) {
+    normalizedHabit.frequencyType = FrequencyType.DAILY;
+  }
+  
+  normalizedHabit.frequencyConfig = validateFrequencyConfig(
+    normalizedHabit.frequencyType, 
+    normalizedHabit.frequencyConfig
+  );
+  
+  return normalizedHabit;
 }
 
 export function generateId() {

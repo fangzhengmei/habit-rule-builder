@@ -8,7 +8,8 @@ import {
   validatePositiveInteger,
   validateIntervalDays,
   validateTimesPerDay,
-  validateTimesPerWeek
+  validateTimesPerWeek,
+  normalizeHabitConfig
 } from '../models.js';
 
 import {
@@ -708,5 +709,347 @@ describe('Habit Logic - Defensive Programming with Invalid Config', () => {
     
     expect(canCheckInToday(habit, checkIns, today)).toBeDefined();
     expect(calculateStreak(habit, checkIns, today)).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe('normalizeHabitConfig - Config Normalization', () => {
+  test('should return null for null habit', () => {
+    expect(normalizeHabitConfig(null)).toBeNull();
+  });
+
+  test('should return null for undefined habit', () => {
+    expect(normalizeHabitConfig(undefined)).toBeNull();
+  });
+
+  test('should normalize invalid frequencyType to DAILY', () => {
+    const habit = {
+      id: 'test',
+      name: 'Test',
+      frequencyType: 'invalid',
+      frequencyConfig: { intervalDays: 3 }
+    };
+    
+    const normalized = normalizeHabitConfig(habit);
+    expect(normalized.frequencyType).toBe(FrequencyType.DAILY);
+    expect(normalized.frequencyConfig.timesPerDay).toBe(1);
+  });
+
+  describe('Interval Habit Normalization', () => {
+    test('should normalize intervalDays 0 to 2', () => {
+      const habit = {
+        id: 'test',
+        name: 'Test',
+        frequencyType: FrequencyType.INTERVAL,
+        frequencyConfig: { intervalDays: 0 }
+      };
+      
+      const normalized = normalizeHabitConfig(habit);
+      expect(normalized.frequencyConfig.intervalDays).toBe(2);
+    });
+
+    test('should normalize negative intervalDays to 2', () => {
+      const habit = {
+        id: 'test',
+        name: 'Test',
+        frequencyType: FrequencyType.INTERVAL,
+        frequencyConfig: { intervalDays: -5 }
+      };
+      
+      const normalized = normalizeHabitConfig(habit);
+      expect(normalized.frequencyConfig.intervalDays).toBe(2);
+    });
+
+    test('should normalize non-integer intervalDays to 2', () => {
+      const habit = {
+        id: 'test',
+        name: 'Test',
+        frequencyType: FrequencyType.INTERVAL,
+        frequencyConfig: { intervalDays: 2.5 }
+      };
+      
+      const normalized = normalizeHabitConfig(habit);
+      expect(normalized.frequencyConfig.intervalDays).toBe(2);
+    });
+
+    test('should normalize intervalDays > 365 to 2', () => {
+      const habit = {
+        id: 'test',
+        name: 'Test',
+        frequencyType: FrequencyType.INTERVAL,
+        frequencyConfig: { intervalDays: 500 }
+      };
+      
+      const normalized = normalizeHabitConfig(habit);
+      expect(normalized.frequencyConfig.intervalDays).toBe(2);
+    });
+
+    test('should normalize string intervalDays to 2', () => {
+      const habit = {
+        id: 'test',
+        name: 'Test',
+        frequencyType: FrequencyType.INTERVAL,
+        frequencyConfig: { intervalDays: 'abc' }
+      };
+      
+      const normalized = normalizeHabitConfig(habit);
+      expect(normalized.frequencyConfig.intervalDays).toBe(2);
+    });
+
+    test('should normalize empty frequencyConfig to default', () => {
+      const habit = {
+        id: 'test',
+        name: 'Test',
+        frequencyType: FrequencyType.INTERVAL,
+        frequencyConfig: {}
+      };
+      
+      const normalized = normalizeHabitConfig(habit);
+      expect(normalized.frequencyConfig.intervalDays).toBe(2);
+    });
+
+    test('should normalize undefined frequencyConfig to default', () => {
+      const habit = {
+        id: 'test',
+        name: 'Test',
+        frequencyType: FrequencyType.INTERVAL
+      };
+      
+      const normalized = normalizeHabitConfig(habit);
+      expect(normalized.frequencyConfig.intervalDays).toBe(2);
+    });
+
+    test('should keep valid intervalDays (1)', () => {
+      const habit = {
+        id: 'test',
+        name: 'Test',
+        frequencyType: FrequencyType.INTERVAL,
+        frequencyConfig: { intervalDays: 1 }
+      };
+      
+      const normalized = normalizeHabitConfig(habit);
+      expect(normalized.frequencyConfig.intervalDays).toBe(1);
+    });
+
+    test('should keep valid intervalDays (365)', () => {
+      const habit = {
+        id: 'test',
+        name: 'Test',
+        frequencyType: FrequencyType.INTERVAL,
+        frequencyConfig: { intervalDays: 365 }
+      };
+      
+      const normalized = normalizeHabitConfig(habit);
+      expect(normalized.frequencyConfig.intervalDays).toBe(365);
+    });
+  });
+
+  describe('Daily Habit Normalization', () => {
+    test('should normalize timesPerDay 0 to 1', () => {
+      const habit = {
+        id: 'test',
+        name: 'Test',
+        frequencyType: FrequencyType.DAILY,
+        frequencyConfig: { timesPerDay: 0 }
+      };
+      
+      const normalized = normalizeHabitConfig(habit);
+      expect(normalized.frequencyConfig.timesPerDay).toBe(1);
+    });
+
+    test('should keep valid timesPerDay', () => {
+      const habit = {
+        id: 'test',
+        name: 'Test',
+        frequencyType: FrequencyType.DAILY,
+        frequencyConfig: { timesPerDay: 5 }
+      };
+      
+      const normalized = normalizeHabitConfig(habit);
+      expect(normalized.frequencyConfig.timesPerDay).toBe(5);
+    });
+  });
+
+  describe('Weekly Habit Normalization', () => {
+    test('should normalize timesPerWeek 0 to 3', () => {
+      const habit = {
+        id: 'test',
+        name: 'Test',
+        frequencyType: FrequencyType.WEEKLY,
+        frequencyConfig: { timesPerWeek: 0 }
+      };
+      
+      const normalized = normalizeHabitConfig(habit);
+      expect(normalized.frequencyConfig.timesPerWeek).toBe(3);
+    });
+
+    test('should normalize timesPerWeek 8 to 3', () => {
+      const habit = {
+        id: 'test',
+        name: 'Test',
+        frequencyType: FrequencyType.WEEKLY,
+        frequencyConfig: { timesPerWeek: 8 }
+      };
+      
+      const normalized = normalizeHabitConfig(habit);
+      expect(normalized.frequencyConfig.timesPerWeek).toBe(3);
+    });
+  });
+});
+
+describe('Config Normalization Consistency - Edit/Save/Display/Calculate', () => {
+  test('normalized intervalDays (2) should work correctly in streak calculation', () => {
+    const rawHabit = {
+      id: 'test-id',
+      name: 'Test Interval',
+      frequencyType: FrequencyType.INTERVAL,
+      frequencyConfig: { intervalDays: 0 }
+    };
+    
+    const normalized = normalizeHabitConfig(rawHabit);
+    expect(normalized.frequencyConfig.intervalDays).toBe(2);
+    
+    const today = new Date();
+    const checkIns = [
+      createMockCheckIn('test-id', today),
+      createMockCheckIn('test-id', addDays(today, -2)),
+      createMockCheckIn('test-id', addDays(today, -4))
+    ];
+    
+    const streak = calculateStreak(normalized, checkIns, today);
+    expect(streak).toBe(3);
+  });
+
+  test('normalized config should make canCheckInToday behave predictably', () => {
+    const rawHabit = {
+      id: 'test-id',
+      name: 'Test Interval',
+      frequencyType: FrequencyType.INTERVAL,
+      frequencyConfig: { intervalDays: -1 }
+    };
+    
+    const normalized = normalizeHabitConfig(rawHabit);
+    expect(normalized.frequencyConfig.intervalDays).toBe(2);
+    
+    const today = new Date();
+    const yesterday = addDays(today, -1);
+    const twoDaysAgo = addDays(today, -2);
+    
+    let checkIns = [createMockCheckIn('test-id', yesterday)];
+    expect(canCheckInToday(normalized, checkIns, today)).toBe(false);
+    
+    checkIns = [createMockCheckIn('test-id', twoDaysAgo)];
+    expect(canCheckInToday(normalized, checkIns, today)).toBe(true);
+  });
+
+  test('displayed value should match calculation value after normalization', () => {
+    const rawHabit = {
+      id: 'test-id',
+      name: 'Test',
+      frequencyType: FrequencyType.INTERVAL,
+      frequencyConfig: { intervalDays: 500 }
+    };
+    
+    const normalized = normalizeHabitConfig(rawHabit);
+    const displayedValue = normalized.frequencyConfig.intervalDays;
+    
+    const today = new Date();
+    const yesterday = addDays(today, -1);
+    const twoDaysAgo = addDays(today, -2);
+    
+    const checkIns = [createMockCheckIn('test-id', twoDaysAgo)];
+    const canCheckIn = canCheckInToday(normalized, checkIns, today);
+    
+    expect(displayedValue).toBe(2);
+    expect(canCheckIn).toBe(true);
+  });
+
+  test('multiple invalid configs should all normalize to same default behavior', () => {
+    const invalidConfigs = [
+      { intervalDays: 0 },
+      { intervalDays: -5 },
+      { intervalDays: 2.5 },
+      { intervalDays: 500 },
+      { intervalDays: 'abc' },
+      {},
+      null
+    ];
+    
+    const normalizedValues = invalidConfigs.map(config => {
+      const habit = {
+        id: 'test',
+        name: 'Test',
+        frequencyType: FrequencyType.INTERVAL,
+        frequencyConfig: config
+      };
+      return normalizeHabitConfig(habit)?.frequencyConfig?.intervalDays;
+    });
+    
+    normalizedValues.forEach(value => {
+      expect(value).toBe(2);
+    });
+    
+    normalizedValues.forEach((value, index) => {
+      for (let i = index + 1; i < normalizedValues.length; i++) {
+        expect(value).toBe(normalizedValues[i]);
+      }
+    });
+  });
+
+  test('normalization should not modify valid configs', () => {
+    const habit = {
+      id: 'test',
+      name: 'Test',
+      frequencyType: FrequencyType.INTERVAL,
+      frequencyConfig: { intervalDays: 3 }
+    };
+    
+    const normalized = normalizeHabitConfig(habit);
+    expect(normalized.frequencyConfig.intervalDays).toBe(3);
+    
+    const today = new Date();
+    const threeDaysAgo = addDays(today, -3);
+    const checkIns = [createMockCheckIn('test', threeDaysAgo)];
+    
+    expect(canCheckInToday(normalized, checkIns, today)).toBe(true);
+  });
+
+  test('normalized daily habit should work correctly', () => {
+    const rawHabit = {
+      id: 'test-id',
+      name: 'Test Daily',
+      frequencyType: FrequencyType.DAILY,
+      frequencyConfig: { timesPerDay: 0 }
+    };
+    
+    const normalized = normalizeHabitConfig(rawHabit);
+    expect(normalized.frequencyConfig.timesPerDay).toBe(1);
+    
+    const today = new Date();
+    const checkIns = [createMockCheckIn('test-id', today)];
+    
+    expect(isDailyGoalMet(normalized, checkIns, today)).toBe(true);
+    expect(canCheckInToday(normalized, checkIns, today)).toBe(false);
+  });
+
+  test('normalized weekly habit should work correctly', () => {
+    const rawHabit = {
+      id: 'test-id',
+      name: 'Test Weekly',
+      frequencyType: FrequencyType.WEEKLY,
+      frequencyConfig: { timesPerWeek: 0 }
+    };
+    
+    const normalized = normalizeHabitConfig(rawHabit);
+    expect(normalized.frequencyConfig.timesPerWeek).toBe(3);
+    
+    const today = new Date();
+    const checkIns = [
+      createMockCheckIn('test-id', today),
+      createMockCheckIn('test-id', today),
+      createMockCheckIn('test-id', today)
+    ];
+    
+    expect(isWeeklyGoalMet(normalized, checkIns, today)).toBe(true);
+    expect(canCheckInToday(normalized, checkIns, today)).toBe(false);
   });
 });
