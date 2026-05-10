@@ -5,7 +5,7 @@ import {
   normalizeDate,
   addDays,
   datesAreEqual
-} from './src/models.js';
+} from '../models.js';
 
 import {
   isDailyGoalMet,
@@ -19,7 +19,7 @@ import {
   calculateLongestStreak,
   getNextDueDate,
   getCheckInDates
-} from './src/habitLogic.js';
+} from '../habitLogic.js';
 
 function createMockCheckIn(habitId, date) {
   return {
@@ -235,7 +235,7 @@ describe('Interval Habit Logic', () => {
     expect(datesAreEqual(nextDue, today)).toBe(true);
   });
 
-  test('should calculate interval streak correctly', () => {
+  test('should calculate interval streak correctly - today checked in', () => {
     const today = new Date();
     const checkIns = [
       createMockCheckIn(habit.id, today),
@@ -247,7 +247,19 @@ describe('Interval Habit Logic', () => {
     expect(calculateStreak(habit, checkIns, today)).toBe(4);
   });
 
-  test('should not count days between interval check-ins as part of streak', () => {
+  test('should calculate interval streak correctly - yesterday checked in, today not yet due', () => {
+    const today = new Date();
+    const yesterday = addDays(today, -1);
+    const checkIns = [
+      createMockCheckIn(habit.id, yesterday),
+      createMockCheckIn(habit.id, addDays(today, -3)),
+      createMockCheckIn(habit.id, addDays(today, -5))
+    ];
+    
+    expect(calculateStreak(habit, checkIns, today)).toBe(3);
+  });
+
+  test('should not count days between interval check-ins as part of streak - looking back from check-in day', () => {
     const today = new Date();
     const checkIns = [
       createMockCheckIn(habit.id, addDays(today, -1)),
@@ -257,6 +269,63 @@ describe('Interval Habit Logic', () => {
     
     const dayBeforeToday = addDays(today, -1);
     expect(calculateStreak(habit, checkIns, dayBeforeToday)).toBe(3);
+  });
+
+  test('interval streak should break when missing a check-in cycle', () => {
+    const today = new Date();
+    const checkIns = [
+      createMockCheckIn(habit.id, today),
+      createMockCheckIn(habit.id, addDays(today, -2)),
+      createMockCheckIn(habit.id, addDays(today, -6)),
+      createMockCheckIn(habit.id, addDays(today, -8))
+    ];
+    
+    expect(calculateStreak(habit, checkIns, today)).toBe(2);
+  });
+
+  test('interval streak should be 0 when last check-in is too old', () => {
+    const today = new Date();
+    const checkIns = [
+      createMockCheckIn(habit.id, addDays(today, -5)),
+      createMockCheckIn(habit.id, addDays(today, -7)),
+      createMockCheckIn(habit.id, addDays(today, -9))
+    ];
+    
+    expect(calculateStreak(habit, checkIns, today)).toBe(0);
+  });
+
+  test('should calculate longest interval streak correctly', () => {
+    const today = new Date();
+    const checkIns = [
+      createMockCheckIn(habit.id, addDays(today, -10)),
+      createMockCheckIn(habit.id, addDays(today, -8)),
+      createMockCheckIn(habit.id, addDays(today, -6)),
+      createMockCheckIn(habit.id, addDays(today, -2)),
+      createMockCheckIn(habit.id, today)
+    ];
+    
+    expect(calculateLongestStreak(habit, checkIns)).toBe(3);
+  });
+
+  test('should handle single check-in for interval habit', () => {
+    const today = new Date();
+    const checkIns = [createMockCheckIn(habit.id, today)];
+    
+    expect(calculateStreak(habit, checkIns, today)).toBe(1);
+    expect(calculateLongestStreak(habit, checkIns)).toBe(1);
+  });
+
+  test('should handle 3-day interval habit correctly', () => {
+    const habit3Day = createHabit('Every 3 Days', FrequencyType.INTERVAL, { intervalDays: 3 });
+    const today = new Date();
+    const checkIns = [
+      createMockCheckIn(habit3Day.id, today),
+      createMockCheckIn(habit3Day.id, addDays(today, -3)),
+      createMockCheckIn(habit3Day.id, addDays(today, -6)),
+      createMockCheckIn(habit3Day.id, addDays(today, -9))
+    ];
+    
+    expect(calculateStreak(habit3Day, checkIns, today)).toBe(4);
   });
 });
 

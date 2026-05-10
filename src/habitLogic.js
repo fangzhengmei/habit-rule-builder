@@ -159,9 +159,85 @@ export function canCheckInToday(habit, checkIns, today = new Date()) {
   }
 }
 
+export function calculateIntervalStreak(habit, checkIns, today = new Date()) {
+  const intervalDays = habit.frequencyConfig.intervalDays;
+  const checkInDates = getCheckInDates(checkIns);
+  
+  if (checkInDates.length === 0) return 0;
+  
+  const todayNormalized = normalizeDate(today);
+  const checkInSet = new Set(checkInDates.map(d => d.getTime()));
+  
+  let lastCheckInIndex = -1;
+  for (let i = checkInDates.length - 1; i >= 0; i--) {
+    if (checkInDates[i] <= todayNormalized) {
+      lastCheckInIndex = i;
+      break;
+    }
+  }
+  
+  if (lastCheckInIndex === -1) return 0;
+  
+  const lastCheckIn = checkInDates[lastCheckInIndex];
+  const nextDueFromLast = addDays(lastCheckIn, intervalDays);
+  
+  if (todayNormalized < nextDueFromLast || datesAreEqual(todayNormalized, lastCheckIn)) {
+    let streak = 1;
+    let expectedPrevDate = addDays(lastCheckIn, -intervalDays);
+    
+    while (true) {
+      if (checkInSet.has(expectedPrevDate.getTime())) {
+        streak++;
+        expectedPrevDate = addDays(expectedPrevDate, -intervalDays);
+      } else {
+        break;
+      }
+    }
+    
+    return streak;
+  }
+  
+  return 0;
+}
+
+export function calculateIntervalLongestStreak(habit, checkIns) {
+  const intervalDays = habit.frequencyConfig.intervalDays;
+  const checkInDates = getCheckInDates(checkIns);
+  
+  if (checkInDates.length === 0) return 0;
+  if (checkInDates.length === 1) return 1;
+  
+  const checkInSet = new Set(checkInDates.map(d => d.getTime()));
+  let longestStreak = 1;
+  
+  for (let i = checkInDates.length - 1; i >= 0; i--) {
+    let currentStreak = 1;
+    let expectedPrevDate = addDays(checkInDates[i], -intervalDays);
+    
+    while (checkInSet.has(expectedPrevDate.getTime())) {
+      currentStreak++;
+      expectedPrevDate = addDays(expectedPrevDate, -intervalDays);
+    }
+    
+    if (currentStreak > longestStreak) {
+      longestStreak = currentStreak;
+    }
+    
+    if (longestStreak >= i + 1) {
+      break;
+    }
+  }
+  
+  return longestStreak;
+}
+
 export function calculateStreak(habit, checkIns, today = new Date()) {
   const checkInDates = getCheckInDates(checkIns);
   if (checkInDates.length === 0) return 0;
+  
+  if (habit.frequencyType === FrequencyType.INTERVAL) {
+    return calculateIntervalStreak(habit, checkIns, today);
+  }
   
   const todayNormalized = normalizeDate(today);
   let streak = 0;
@@ -186,6 +262,10 @@ export function calculateStreak(habit, checkIns, today = new Date()) {
 export function calculateLongestStreak(habit, checkIns) {
   const checkInDates = getCheckInDates(checkIns);
   if (checkInDates.length === 0) return 0;
+  
+  if (habit.frequencyType === FrequencyType.INTERVAL) {
+    return calculateIntervalLongestStreak(habit, checkIns);
+  }
   
   let longestStreak = 0;
   let currentStreak = 0;
